@@ -1,5 +1,6 @@
 package net.xdob.icap4j.example.simple;
 
+import com.google.common.base.Stopwatch;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
@@ -108,9 +109,14 @@ public class IcapClient {
 //      httpRequest.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/html");
 
       request.setFullHttpMessage(httpRequest);
-      IcapFuture<FullResponse> future = client.sendRequest(request, null);
-      FullResponse response = future.get(8, TimeUnit.SECONDS);
-      System.out.println("response = " + response);
+      Stopwatch stopwatch = Stopwatch.createStarted();
+      for (int i = 0; i < 1; i++) {
+        IcapFuture<FullResponse> future = client.sendRequest(request, null);
+        FullResponse response = future.get(4, TimeUnit.SECONDS);
+      }
+      stopwatch.stop();
+      System.out.println("stopwatch = " + stopwatch.toString());
+      //System.out.println("response = " + response);
     } catch (Exception e) {
       e.printStackTrace();
     }

@@ -110,7 +110,7 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
 
     String initialLine = in.toString(readerIndex, length, CharsetUtil.US_ASCII);
     String[] initialLineParts = initialLine.split(" ");
-    if (initialLineParts.length != 3) {
+    if (initialLineParts.length < 3) {
       in.readerIndex(end);
       state = State.BAD_MESSAGE;
       throw new CorruptedFrameException("invalid initial line: " + initialLine);

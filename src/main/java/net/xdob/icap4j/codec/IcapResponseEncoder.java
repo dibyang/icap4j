@@ -2,9 +2,7 @@ package net.xdob.icap4j.codec;
 
 import io.netty.buffer.ByteBuf;
 
-/**
- * ICAP Response encoder which takes an @see {@link FullResponse} to encode.
- */
+
 public class IcapResponseEncoder extends IcapMessageEncoder {
 
   @Override
