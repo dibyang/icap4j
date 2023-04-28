@@ -51,6 +51,11 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
         if (!readHttpHeader(in)) {
           return;
         }
+        if(message.getFullHttpMessage()==null){
+          out.add(message);
+          reset();
+          state = State.READ_INITIAL;
+        }
         if (message.isChunked()) {
           state = State.READ_CHUNK_SIZE;
         } else {
@@ -173,8 +178,14 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
   private boolean readHttpHeader(ByteBuf in) throws Exception {
     //每次获取都是新的
     Encapsulated encapsulated = message.getEncapsulated();
+    if(encapsulated==null){
+      return true;
+    }
     IcapElEnum nextEntry = encapsulated.getNextEntry();
     while (nextEntry != null) {
+//      if (nextEntry.equals(IcapElEnum.NULLBODY)||nextEntry.equals(IcapElEnum.OPTBODY)) {
+//        return false;
+//      }
       if (nextEntry.equals(IcapElEnum.REQHDR)) {
         int readerIndex = in.readerIndex();
         int length = findCRLF(in);
@@ -190,8 +201,8 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
 
         String line = in.toString(readerIndex, length, CharsetUtil.US_ASCII);
         in.readerIndex(readerIndex + length + 2);
-        List<String> initialLine = Splitter.on(' ').splitToList(line);
-        DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.valueOf(initialLine.get(2)), HttpMethod.valueOf(initialLine.get(0)), initialLine.get(1));
+        String[] initialLine = line.split(" ");
+        DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.valueOf(initialLine[2]), HttpMethod.valueOf(initialLine[0]), initialLine[1]);
         message.setFullHttpMessage(request);
         FullHttpMessage httpMessage = message.getFullHttpMessage();
         List<String[]> headerList = IcapDecoderUtil.readHeaders(in, MAX_HEADER_SIZE);
@@ -216,9 +227,12 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
         }
 
         String line = in.toString(readerIndex, length, CharsetUtil.US_ASCII);
+        if(!line.startsWith("HTTP")) {
+          System.out.println("line = " + line);
+        }
         in.readerIndex(readerIndex + length + 2);
-        List<String> initialLine = Splitter.on(' ').splitToList(line);
-        FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.valueOf(initialLine.get(0)), HttpResponseStatus.valueOf(Integer.parseInt(initialLine.get(1))));
+        String[] initialLine = line.split(" ");
+        FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.valueOf(initialLine[0]), HttpResponseStatus.valueOf(Integer.parseInt(initialLine[1])));
         message.setFullHttpMessage(response);
         FullHttpMessage httpMessage = message.getFullHttpMessage();
         List<String[]> headerList = IcapDecoderUtil.readHeaders(in, MAX_HEADER_SIZE);

@@ -1,4 +1,4 @@
-package net.xdob.icap4j.example.simple;
+package net.xdob.icap4j;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
