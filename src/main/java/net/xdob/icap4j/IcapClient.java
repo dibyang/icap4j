@@ -3,7 +3,6 @@ package net.xdob.icap4j;
 import net.xdob.icap4j.codec.FullResponse;
 
 import java.io.File;
-import java.io.IOException;
 
 public interface IcapClient {
   IcapFuture<FullResponse> options(String service, IcapCallback<FullResponse> callback);

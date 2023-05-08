@@ -10,6 +10,8 @@ public interface IcapMessage {
 
   void setProtocolVersion(IcapVersion version);
 
+  void setPreview(int preview);
+
   boolean isPreviewMessage();
 
   HttpHeaders headers();

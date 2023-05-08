@@ -2,13 +2,15 @@ package net.xdob.icap4j.codec;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.DefaultFileRegion;
+import io.netty.channel.FileRegion;
 import io.netty.handler.codec.MessageToMessageEncoder;
-import io.netty.handler.codec.http.FullHttpMessage;
-import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.*;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
+import java.io.File;
+import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,7 @@ public abstract class IcapMessageEncoder extends MessageToMessageEncoder<FullIca
     out.add(httpBuffer);
     FullHttpMessage httpMessage = msg.getFullHttpMessage();
     if (httpMessage != null) {
+
       if (httpMessage instanceof FullHttpRequest) {
         encodeHttpRequestHeader(httpBuffer, (FullHttpRequest) httpMessage);
         encapsulated.addEntry(IcapElEnum.REQHDR, index);
@@ -45,7 +48,6 @@ public abstract class IcapMessageEncoder extends MessageToMessageEncoder<FullIca
         index += httpBuffer.readableBytes();
         if (httpMessage.content().readableBytes() > 0) {
           encapsulated.addEntry(IcapElEnum.REQBODY, index);
-
         }
       }
       if (httpMessage instanceof FullHttpResponse) {
@@ -55,7 +57,6 @@ public abstract class IcapMessageEncoder extends MessageToMessageEncoder<FullIca
         index += httpBuffer.readableBytes();
         if (httpMessage.content().readableBytes() > 0) {
           encapsulated.addEntry(IcapElEnum.RESBODY, index);
-
         }
       }
       if (httpMessage.content().readableBytes() > 0) {
@@ -66,8 +67,8 @@ public abstract class IcapMessageEncoder extends MessageToMessageEncoder<FullIca
         httpBuffer.writeBytes(("0; ieof").getBytes(IcapCodecUtil.ASCII_CHARSET));
         httpBuffer.writeBytes(IcapCodecUtil.CRLF);
         httpBuffer.writeBytes(IcapCodecUtil.CRLF);
-        //index += httpBuffer.readableBytes();
       }
+
     } else {
       encapsulated.addEntry(IcapElEnum.NULLBODY, index);
     }

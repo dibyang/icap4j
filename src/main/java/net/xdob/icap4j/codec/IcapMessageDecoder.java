@@ -1,6 +1,5 @@
 package net.xdob.icap4j.codec;
 
-import com.google.common.base.Splitter;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
@@ -23,75 +22,90 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     READ_INITIAL, READ_HEADER, READ_HTTP_HEADER, READ_CONTENT, READ_CHUNK_SIZE, READ_CHUNK_CONTENT, READ_CHUNK_END, BAD_MESSAGE
   }
 
-  private State state = State.READ_INITIAL;
+  private class Context{
+    private State state = State.READ_INITIAL;
 
-  private int initialLineLength;
-  private int contentSize;
+    private int initialLineLength;
+    private int contentSize;
 
-  private int chunkSize;
-  private int chunkContentSize;
+    private int chunkSize;
+    private int chunkContentSize;
 
-  protected FullIcapMessage message;
+    private FullIcapMessage message;
+
+    public void reset(){
+      initialLineLength = 0;
+      contentSize = 0;
+      chunkSize = 0;
+      chunkContentSize = 0;
+      message = null;
+    }
+  }
+
+
+
+
 
   protected abstract FullIcapMessage createMessage(String[] initialLine);
 
   @Override
   protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-    switch (state) {
+    Context context = new Context();
+    switch (context.state) {
       case READ_INITIAL:
-        if (!readInitialLine(in)) {
+        if (!readInitialLine(context, in)) {
           return;
         }
-        state = State.READ_HEADER;
+        context.state = State.READ_HEADER;
       case READ_HEADER:
-        if (!readHeader(in)) {
+        if (!readHeader(context, in)) {
           return;
         }
       case READ_HTTP_HEADER:
-        if (!readHttpHeader(in)) {
+        if (!readHttpHeader(context, in)) {
           return;
         }
-        if(message.getFullHttpMessage()==null){
-          out.add(message);
-          reset();
-          state = State.READ_INITIAL;
+        if(context.message.getFullHttpMessage()==null){
+          out.add(context.message);
+          context.reset();
+          context.state = State.READ_INITIAL;
         }
-        if (message.isChunked()) {
-          state = State.READ_CHUNK_SIZE;
+        if (context.message.isChunked()) {
+          context.state = State.READ_CHUNK_SIZE;
         } else {
-          state = State.READ_CONTENT;
+          context.state = State.READ_CONTENT;
         }
       case READ_CONTENT:
-        if (!readContent(in)) {
+        if (!readContent(context, in)) {
           return;
         }
-        out.add(message);
-        reset();
-        state = State.READ_INITIAL;
+        out.add(context.message);
+        context.reset();
+        context.state = State.READ_INITIAL;
         break;
       case READ_CHUNK_SIZE:
-        if (!readChunkSize(in)) {
+        if (!readChunkSize(context, in)) {
           return;
         }
-        state = State.READ_CHUNK_CONTENT;
+        context.state = State.READ_CHUNK_CONTENT;
       case READ_CHUNK_CONTENT:
-        if (!readChunkContent(in)) {
+        if (!readChunkContent(context, in)) {
           return;
         }
-        if (chunkContentSize == chunkSize) {
-          state = State.READ_CHUNK_END;
+        if (context.chunkContentSize == context.chunkSize) {
+          context.state = State.READ_CHUNK_END;
         }
         break;
       case READ_CHUNK_END:
         if (!readChunkEnd(in)) {
           return;
         }
-        if (chunkSize == 0) {
-          out.add(message);
-          reset();
-          state = State.READ_INITIAL;
+        if (context.chunkSize == 0) {
+          out.add(context.message);
+          context.reset();
+          context.state = State.READ_INITIAL;
         } else {
-          state = State.READ_CHUNK_SIZE;
+          context.state = State.READ_CHUNK_SIZE;
         }
         break;
       case BAD_MESSAGE:
@@ -100,7 +114,7 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     }
   }
 
-  private boolean readInitialLine(ByteBuf in) throws Exception {
+  private boolean readInitialLine(Context context, ByteBuf in) throws Exception {
     int readerIndex = in.readerIndex();
     int length = findCRLF(in);
     if (length < 0) {
@@ -109,7 +123,7 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     int end = in.writerIndex();
     if (length > MAX_INITIAL_LINE_LENGTH) {
       in.readerIndex(end);
-      state = State.BAD_MESSAGE;
+      context.state = State.BAD_MESSAGE;
       throw new TooLongFrameException("initial line too long");
     }
 
@@ -117,13 +131,13 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     String[] initialLineParts = initialLine.split(" ");
     if (initialLineParts.length < 3) {
       in.readerIndex(end);
-      state = State.BAD_MESSAGE;
+      context.state = State.BAD_MESSAGE;
       throw new CorruptedFrameException("invalid initial line: " + initialLine);
     }
 
-    message = this.createMessage(initialLineParts);
-    initialLineLength = length + 2;
-    in.readerIndex(readerIndex + initialLineLength);
+    context.message = this.createMessage(initialLineParts);
+    context.initialLineLength = length + 2;
+    in.readerIndex(readerIndex + context.initialLineLength);
 
     return true;
   }
@@ -151,7 +165,7 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     }
   }
 
-  private boolean readHeader(ByteBuf in) throws Exception {
+  private boolean readHeader(Context context, ByteBuf in) throws Exception {
 
     int length = findCRLF(in);
     if (length < 0) {
@@ -160,24 +174,24 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     int end = in.writerIndex();
     if (length > MAX_HEADER_SIZE) {
       in.readerIndex(end);
-      state = State.BAD_MESSAGE;
+      context.state = State.BAD_MESSAGE;
       throw new TooLongFrameException("header too long");
     }
 
     List<String[]> headerList = IcapDecoderUtil.readHeaders(in, MAX_HEADER_SIZE);
 
     for (String[] header : headerList) {
-      message.headers().set(header[0], header[1]);
+      context.message.headers().set(header[0], header[1]);
     }
 
-    handleEncapsulationHeaderVolatility(message);
+    handleEncapsulationHeaderVolatility(context.message);
 
     return true;
   }
 
-  private boolean readHttpHeader(ByteBuf in) throws Exception {
+  private boolean readHttpHeader(Context context, ByteBuf in) throws Exception {
     //每次获取都是新的
-    Encapsulated encapsulated = message.getEncapsulated();
+    Encapsulated encapsulated = context.message.getEncapsulated();
     if(encapsulated==null){
       return true;
     }
@@ -195,7 +209,7 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
         int end = in.writerIndex();
         if (length > MAX_HEADER_SIZE) {
           in.readerIndex(end);
-          state = State.BAD_MESSAGE;
+          context.state = State.BAD_MESSAGE;
           throw new TooLongFrameException("header too long");
         }
 
@@ -203,8 +217,8 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
         in.readerIndex(readerIndex + length + 2);
         String[] initialLine = line.split(" ");
         DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.valueOf(initialLine[2]), HttpMethod.valueOf(initialLine[0]), initialLine[1]);
-        message.setFullHttpMessage(request);
-        FullHttpMessage httpMessage = message.getFullHttpMessage();
+        context.message.setFullHttpMessage(request);
+        FullHttpMessage httpMessage = context.message.getFullHttpMessage();
         List<String[]> headerList = IcapDecoderUtil.readHeaders(in, MAX_HEADER_SIZE);
 
         for (String[] header : headerList) {
@@ -222,7 +236,7 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
         int end = in.writerIndex();
         if (length > MAX_HEADER_SIZE) {
           in.readerIndex(end);
-          state = State.BAD_MESSAGE;
+          context.state = State.BAD_MESSAGE;
           throw new TooLongFrameException("header too long");
         }
 
@@ -233,8 +247,8 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
         in.readerIndex(readerIndex + length + 2);
         String[] initialLine = line.split(" ");
         FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.valueOf(initialLine[0]), HttpResponseStatus.valueOf(Integer.parseInt(initialLine[1])));
-        message.setFullHttpMessage(response);
-        FullHttpMessage httpMessage = message.getFullHttpMessage();
+        context.message.setFullHttpMessage(response);
+        FullHttpMessage httpMessage = context.message.getFullHttpMessage();
         List<String[]> headerList = IcapDecoderUtil.readHeaders(in, MAX_HEADER_SIZE);
         for (String[] header : headerList) {
           httpMessage.headers().set(header[0], header[1]);
@@ -247,22 +261,22 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     return true;
   }
 
-  private boolean readContent(ByteBuf in) throws Exception {
-    FullHttpMessage httpMessage = message.getFullHttpMessage();
+  private boolean readContent(Context context, ByteBuf in) throws Exception {
+    FullHttpMessage httpMessage = context.message.getFullHttpMessage();
     int contentLength = httpMessage.content().readableBytes();
-    int length = Math.min(in.readableBytes(), contentSize - contentLength);
+    int length = Math.min(in.readableBytes(), context.contentSize - contentLength);
     if (length > 0) {
       httpMessage.content().writeBytes(in, length);
     }
 
-    if (contentLength + length >= contentSize) {
+    if (contentLength + length >= context.contentSize) {
       return true;
     }
 
     return false;
   }
 
-  private boolean readChunkSize(ByteBuf in) throws Exception {
+  private boolean readChunkSize(Context context, ByteBuf in) throws Exception {
     int readerIndex = in.readerIndex();
     int length = findCRLF(in);
     if (length < 0) {
@@ -270,36 +284,36 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     }
     String chunkSizeHex = in.toString(readerIndex, length, CharsetUtil.US_ASCII);
     try {
-      chunkSize = Integer.parseInt(chunkSizeHex, 16);
+      context.chunkSize = Integer.parseInt(chunkSizeHex, 16);
     } catch (NumberFormatException e) {
-      state = State.BAD_MESSAGE;
+      context.state = State.BAD_MESSAGE;
       throw new CorruptedFrameException("invalid chunk size: " + chunkSizeHex);
     }
 
-    if (chunkSize > MAX_CHUNK_SIZE) {
-      state = State.BAD_MESSAGE;
-      throw new TooLongFrameException("chunk size too long: " + chunkSize);
+    if (context.chunkSize > MAX_CHUNK_SIZE) {
+      context.state = State.BAD_MESSAGE;
+      throw new TooLongFrameException("chunk size too long: " + context.chunkSize);
     }
 
-    if (chunkSize == 0) {
+    if (context.chunkSize == 0) {
       in.readerIndex(readerIndex + length + 2);
       return true;
     }
 
-    chunkContentSize = 0;
+    context.chunkContentSize = 0;
     in.readerIndex(readerIndex + length + 2);
     return true;
   }
 
-  private boolean readChunkContent(ByteBuf in) throws Exception {
-    ByteBuf content = message.getFullHttpMessage().content();
+  private boolean readChunkContent(Context context, ByteBuf in) throws Exception {
+    ByteBuf content = context.message.getFullHttpMessage().content();
     int contentLength = content.readableBytes();
-    int length = Math.min(in.readableBytes(), chunkSize - chunkContentSize);
+    int length = Math.min(in.readableBytes(), context.chunkSize - context.chunkContentSize);
     if (length > 0) {
       content.writeBytes(in, length);
     }
-    chunkContentSize += length;
-    return chunkContentSize == chunkSize;
+    context.chunkContentSize += length;
+    return context.chunkContentSize == context.chunkSize;
   }
 
   private boolean readChunkEnd(ByteBuf in) throws Exception {
@@ -327,12 +341,6 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     }
   }
 
-  private void reset() {
-    initialLineLength = 0;
-    contentSize = 0;
-    chunkSize = 0;
-    chunkContentSize = 0;
-    message = null;
-  }
+
 }
 

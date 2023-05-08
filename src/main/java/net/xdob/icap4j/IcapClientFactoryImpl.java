@@ -53,7 +53,7 @@ public class IcapClientFactoryImpl implements IcapClientFactory{
     int count = 50;
     CountDownLatch countDownLatch = new CountDownLatch(count);
     for (int i = 0; i < count; i++) {
-      client.reqmod("srv_clamav", Paths.get("d:/rrrr.zip").toFile(), new IcapCallback<FullResponse>() {
+      client.respmod("srv_clamav", Paths.get("d:/rrrr.zip").toFile(), new IcapCallback<FullResponse>() {
         @Override
         public void completed(FullResponse result) {
           System.out.println("response = " + result);

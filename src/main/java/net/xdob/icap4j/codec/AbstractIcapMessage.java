@@ -4,6 +4,7 @@ package net.xdob.icap4j.codec;
 import io.netty.handler.codec.http.*;
 import io.netty.util.internal.StringUtil;
 
+import java.io.File;
 import java.util.Map;
 import java.util.Optional;
 
@@ -17,6 +18,7 @@ public abstract class AbstractIcapMessage implements FullIcapMessage {
   private final HttpHeaders headers = new DefaultHttpHeaders();
 
   private FullHttpMessage httpMessage;
+  private File file;
 
   public AbstractIcapMessage(IcapVersion version) {
     this.version = version;
@@ -26,6 +28,10 @@ public abstract class AbstractIcapMessage implements FullIcapMessage {
     return headers;
   }
 
+  @Override
+  public void setPreview(int preview){
+    headers.set(IcapHeaders.Names.PREVIEW, preview);
+  }
 
   @Override
   public int getPreviewAmount() {
@@ -40,6 +46,16 @@ public abstract class AbstractIcapMessage implements FullIcapMessage {
   @Override
   public void setProtocolVersion(IcapVersion version) {
     this.version = version;
+  }
+
+  @Override
+  public File getFile() {
+    return file;
+  }
+
+  @Override
+  public void setFile(File file) {
+    this.file = file;
   }
 
   @Override
