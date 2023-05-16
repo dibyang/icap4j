@@ -1,4 +1,5 @@
 build
 .gradle
 .idea
+signing.properties
 /src/main/java/net/xdob/icap4j/example/old/

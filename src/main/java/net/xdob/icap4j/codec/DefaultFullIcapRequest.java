@@ -55,7 +55,7 @@ public class DefaultFullIcapRequest extends AbstractIcapMessage implements FullI
 
   public FullIcapRequest setHost(String host) {
     this.host = host;
-    this.headers().set(IcapHeaders.Names.HOST, host);
+    this.headers().set(IcapHeaderNames.HOST, host);
     return this;
   }
 

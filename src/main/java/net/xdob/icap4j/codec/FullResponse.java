@@ -1,6 +1,5 @@
 package net.xdob.icap4j.codec;
 
-import io.netty.buffer.ByteBuf;
 
 public interface FullResponse extends FullIcapMessage {
 
@@ -18,17 +17,4 @@ public interface FullResponse extends FullIcapMessage {
    */
   IcapStatusCode getStatus();
 
-  /**
-   * Sets an OPTIONS body to this message.
-   *
-   * @param optionsContent @see {@link ByteBuf} containing the body.
-   */
-  void setContent(ByteBuf optionsContent);
-
-  /**
-   * Gets an OPTIONS body if present
-   *
-   * @return @see {@link ByteBuf} or null
-   */
-  ByteBuf getContent();
 }

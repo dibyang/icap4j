@@ -3,35 +3,34 @@ package net.xdob.icap4j;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.DefaultFileRegion;
-import io.netty.channel.FileRegion;
 import io.netty.handler.codec.http.*;
 import net.xdob.icap4j.codec.DefaultFullIcapRequest;
 import net.xdob.icap4j.codec.FullIcapRequest;
 import net.xdob.icap4j.codec.FullResponse;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
 
 public class IcapClientImpl implements IcapClient{
   private final String host;
   private final int port;
+  private final IcapClientContext context;
   private final Bootstrap bootstrap;
 
-  public IcapClientImpl(Bootstrap bootstrap, String host, int port) {
+  public IcapClientImpl(IcapClientContext context, String host, int port) {
     this.host = host;
     this.port = port;
-    this.bootstrap = bootstrap;
+    this.context = context;
+    this.bootstrap = context.newBootstrap();
   }
 
   IcapFuture<FullResponse> sendRequest(FullIcapRequest request, IcapCallback<FullResponse> callback) {
-    IcapFuture future = new IcapFuture(callback);
+    IcapFuture future = new IcapFuture(callback,()->{
+      context.getSemaphore().release();
+    });
 
     try {
+      context.getSemaphore().acquire();
       File file = request.getFile();
       if(file !=null&&file.exists()&&file.isFile()){
         long fileLength = file.length();

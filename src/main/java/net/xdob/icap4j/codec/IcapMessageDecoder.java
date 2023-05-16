@@ -18,6 +18,8 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
   private static final int MAX_HEADER_SIZE = 8192;
   private static final int MAX_CHUNK_SIZE = 8192;
 
+
+
   private enum State {
     READ_INITIAL, READ_HEADER, READ_HTTP_HEADER, READ_CONTENT, READ_CHUNK_SIZE, READ_CHUNK_CONTENT, READ_CHUNK_END, BAD_MESSAGE
   }
@@ -65,16 +67,24 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
         if (!readHttpHeader(context, in)) {
           return;
         }
-        if(context.message.getFullHttpMessage()==null){
-          out.add(context.message);
-          context.reset();
-          context.state = State.READ_INITIAL;
-        }
-        if (context.message.isChunked()) {
-          context.state = State.READ_CHUNK_SIZE;
-        } else {
-          context.state = State.READ_CONTENT;
-        }
+        out.add(context.message);
+        context.reset();
+        context.state = State.READ_INITIAL;
+//        Encapsulated encapsulated = context.message.getEncapsulated();
+//        if(encapsulated!=null&&
+//            (encapsulated.containsEntry(IcapElEnum.REQBODY)
+//            ||encapsulated.containsEntry(IcapElEnum.RESBODY)
+//            ||encapsulated.containsEntry(IcapElEnum.OPTBODY))) {
+//          if (context.message.isChunked()) {
+//            context.state = State.READ_CHUNK_SIZE;
+//          } else {
+//            context.state = State.READ_CONTENT;
+//          }
+//        }else{
+//          out.add(context.message);
+//          context.reset();
+//          context.state = State.READ_INITIAL;
+//        }
       case READ_CONTENT:
         if (!readContent(context, in)) {
           return;
@@ -128,12 +138,13 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     }
 
     String initialLine = in.toString(readerIndex, length, CharsetUtil.US_ASCII);
-    String[] initialLineParts = initialLine.split(" ");
-    if (initialLineParts.length < 3) {
+    if (!initialLine.startsWith("ICAP/")) {
       in.readerIndex(end);
       context.state = State.BAD_MESSAGE;
+      //System.out.println("initialLine = " + initialLine);
       throw new CorruptedFrameException("invalid initial line: " + initialLine);
     }
+    String[] initialLineParts = initialLine.split(" ");
 
     context.message = this.createMessage(initialLineParts);
     context.initialLineLength = length + 2;
@@ -148,7 +159,7 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     // IF OPTIONS request OR 100 Continue response OR 204 No Content response
     // THEN inject synthetic null-body Encapsulated header.
     boolean requiresSynthecticEncapsulationHeader = false;
-    if (!message.headers().contains(IcapHeaders.Names.ENCAPSULATED)) {
+    if (!message.headers().contains(IcapHeaderNames.ENCAPSULATED)) {
       if (message instanceof FullIcapRequest && ((FullIcapRequest) message).getMethod().equals(IcapMethod.OPTIONS)) {
         requiresSynthecticEncapsulationHeader = true;
       } else if (message instanceof FullResponse) {
@@ -161,7 +172,7 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     }
 
     if (requiresSynthecticEncapsulationHeader) {
-      message.headers().set(IcapHeaders.Names.ENCAPSULATED, SYNTHETIC_ENCAPSULATED_HEADER_VALUE);
+      message.headers().set(IcapHeaderNames.ENCAPSULATED, SYNTHETIC_ENCAPSULATED_HEADER_VALUE);
     }
   }
 
@@ -183,6 +194,10 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     for (String[] header : headerList) {
       context.message.headers().set(header[0], header[1]);
     }
+    if(!context.message.headers().contains(IcapHeaderNames.ENCAPSULATED)){
+
+      System.out.println("headers = " + context.message.headers());
+    }
 
     handleEncapsulationHeaderVolatility(context.message);
 
@@ -197,9 +212,6 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     }
     IcapElEnum nextEntry = encapsulated.getNextEntry();
     while (nextEntry != null) {
-//      if (nextEntry.equals(IcapElEnum.NULLBODY)||nextEntry.equals(IcapElEnum.OPTBODY)) {
-//        return false;
-//      }
       if (nextEntry.equals(IcapElEnum.REQHDR)) {
         int readerIndex = in.readerIndex();
         int length = findCRLF(in);
@@ -258,22 +270,26 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
       nextEntry = encapsulated.getNextEntry();
     }
 
-    return true;
+    return context.message!=null;
   }
 
   private boolean readContent(Context context, ByteBuf in) throws Exception {
     FullHttpMessage httpMessage = context.message.getFullHttpMessage();
-    int contentLength = httpMessage.content().readableBytes();
-    int length = Math.min(in.readableBytes(), context.contentSize - contentLength);
-    if (length > 0) {
-      httpMessage.content().writeBytes(in, length);
-    }
+    if(context.contentSize>0) {
+      int contentLength = httpMessage.content().readableBytes();
+      int length = Math.min(in.readableBytes(), context.contentSize - contentLength);
+      if (length > 0) {
+        httpMessage.content().writeBytes(in, length);
+      }
 
-    if (contentLength + length >= context.contentSize) {
+      if (contentLength + length >= context.contentSize) {
+        return true;
+      }
+      return false;
+    }else{
+      httpMessage.content().writeBytes(in, in.readableBytes());
       return true;
     }
-
-    return false;
   }
 
   private boolean readChunkSize(Context context, ByteBuf in) throws Exception {

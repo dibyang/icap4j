@@ -30,12 +30,12 @@ public abstract class AbstractIcapMessage implements FullIcapMessage {
 
   @Override
   public void setPreview(int preview){
-    headers.set(IcapHeaders.Names.PREVIEW, preview);
+    headers.set(IcapHeaderNames.PREVIEW, preview);
   }
 
   @Override
   public int getPreviewAmount() {
-    return Optional.ofNullable(headers.getInt(IcapHeaders.Names.PREVIEW)).orElse(-1);
+    return Optional.ofNullable(headers.getInt(IcapHeaderNames.PREVIEW)).orElse(-1);
   }
 
   @Override
@@ -75,13 +75,13 @@ public abstract class AbstractIcapMessage implements FullIcapMessage {
 
   @Override
   public void setEncapsulated(Encapsulated encapsulated) {
-    headers.set(IcapHeaders.Names.ENCAPSULATED, encapsulated.getString());
+    headers.set(IcapHeaderNames.ENCAPSULATED, encapsulated.getString());
   }
 
   @Override
   public Encapsulated getEncapsulated() {
     Encapsulated encapsulated = null;
-    String headerValue = headers.get(IcapHeaders.Names.ENCAPSULATED);
+    String headerValue = headers.get(IcapHeaderNames.ENCAPSULATED);
     if (headerValue != null) {
       encapsulated = new Encapsulated(headerValue);
     }

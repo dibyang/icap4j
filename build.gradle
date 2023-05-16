@@ -4,7 +4,7 @@
 
 plugins {
   id 'java'
-  id 'maven-publish'
+  id 'maven'
 }
 
 sourceSets {
@@ -74,10 +74,4 @@ javadoc {
   options.charSet = 'UTF-8'
 }
 
-publishing {
-  publications {
-    maven(MavenPublication) {
-      from(components.java)
-    }
-  }
-}
+
