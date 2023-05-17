@@ -9,12 +9,15 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.timeout.WriteTimeoutHandler;
 import net.xdob.icap4j.codec.FullResponse;
 import net.xdob.icap4j.codec.IcapRequestEncoder;
 import net.xdob.icap4j.codec.IcapResponseDecoder;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -22,6 +25,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientContext{
   public static final int MAX_SIZE = 16 * 1024;
+  public static final int DEFAULT_TIMEOUT = 5000;
+  public static final int CONNECT_TIMEOUT = 2000;
 
   private Semaphore semaphore;
   private final NioEventLoopGroup eventLoopGroup;
@@ -42,9 +47,13 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
         .group(eventLoopGroup)
         .channel(NioSocketChannel.class)
         .option(ChannelOption.ALLOCATOR, UnpooledByteBufAllocator.DEFAULT)
+        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, CONNECT_TIMEOUT)
         .handler(new ChannelInitializer<SocketChannel>() {
           @Override
           protected void initChannel(SocketChannel ch) {
+            ReadTimeoutHandler readTimeoutHandler = new ReadTimeoutHandler(DEFAULT_TIMEOUT, TimeUnit.MILLISECONDS);
+            ch.pipeline().addLast(readTimeoutHandler);
+            ch.pipeline().addLast(new WriteTimeoutHandler(DEFAULT_TIMEOUT, TimeUnit.MILLISECONDS));
             ch.pipeline().addLast(new IcapRequestEncoder());
             ch.pipeline().addLast(new IcapResponseDecoder());
             ch.pipeline().addLast(new HttpObjectAggregator(MAX_SIZE));
@@ -64,16 +73,18 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
     IcapClient client = factory.getClient("13.13.114.227", DEFAULT_PORT);
     Stopwatch stopwatch = Stopwatch.createStarted();
     AtomicInteger finds = new AtomicInteger();
-    int count = 50;
 
+    int count = 1;
+
+    byte[] context = getContext();
 
     //CountDownLatch countDownLatch = new CountDownLatch(count);
     for (int i = 0; i < count; i++) {
       int finalI = i;
-      IcapFuture<FullResponse> clamav = client.respmod("srv_clamav", Paths.get("d:/rrrr.zip").toFile(), null);
+      IcapFuture<FullResponse> clamav = client.respmod("srv_clamav", context, null);
       try {
         FullResponse response = clamav.get();
-        if(!response.headers().contains("X-Infection-Found")) {
+        if(response.headers().contains("X-Infection-Found")) {
           System.out.println("response = " + response);
         }
       } catch (InterruptedException e) {
@@ -119,6 +130,15 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
 //      e.printStackTrace();
 //    }
     factory.shutdown();
+  }
+
+  private static byte[] getContext() {
+    try {
+      return Files.readAllBytes(Paths.get("d:/rrrr.zip"));
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return new byte[]{};
   }
 
   @Override

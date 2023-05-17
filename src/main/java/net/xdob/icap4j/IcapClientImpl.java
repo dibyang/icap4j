@@ -1,12 +1,15 @@
 package net.xdob.icap4j;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.*;
-import net.xdob.icap4j.codec.DefaultFullIcapRequest;
-import net.xdob.icap4j.codec.FullIcapRequest;
-import net.xdob.icap4j.codec.FullResponse;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.timeout.WriteTimeoutHandler;
+import net.xdob.icap4j.codec.*;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -56,6 +59,27 @@ public class IcapClientImpl implements IcapClient{
     return future;
   }
 
+  IcapFuture<FullResponse> sendRequest(FullIcapRequest request, ByteBuf context, IcapCallback<FullResponse> callback) {
+    if(context !=null&&context.readableBytes()>0){
+      long fileLength = context.readableBytes();
+      FullHttpMessage httpMessage = request.getFullHttpMessage();
+      httpMessage.headers().set(HttpHeaderNames.CONTENT_LENGTH,
+          fileLength);
+      httpMessage.content().writeBytes(context);
+    }
+    return sendRequest(request, callback);
+  }
+
+  IcapFuture<FullResponse> sendRequest(FullIcapRequest request, byte[] context, IcapCallback<FullResponse> callback) {
+    if(context !=null&&context.length>0){
+      long fileLength = context.length;
+      FullHttpMessage httpMessage = request.getFullHttpMessage();
+      httpMessage.headers().set(HttpHeaderNames.CONTENT_LENGTH,
+          fileLength);
+      httpMessage.content().writeBytes(context);
+    }
+    return sendRequest(request, callback);
+  }
 
   @Override
   public IcapFuture<FullResponse> options(String service, IcapCallback<FullResponse> callback) {
@@ -64,10 +88,23 @@ public class IcapClientImpl implements IcapClient{
   }
 
   @Override
-  public IcapFuture<FullResponse> reqmod(String service, File file, IcapCallback<FullResponse> callback) {
+  public IcapFuture<FullResponse> reqmod(String service, ByteBuf context, IcapCallback<FullResponse> callback) {
     FullIcapRequest request = getFullIcapRequest4Req();
-    request.setFile(file);
-    return sendRequest(request, callback);
+    return sendRequest(request, context, callback);
+  }
+
+  @Override
+  public IcapFuture<FullResponse> respmod(String service, ByteBuf context, IcapCallback<FullResponse> callback) {
+    FullIcapRequest request = getFullIcapRequest4Resp();
+    return sendRequest(request, context, callback);
+  }
+
+
+
+  @Override
+  public IcapFuture<FullResponse> reqmod(String service, byte[] context, IcapCallback<FullResponse> callback) {
+    FullIcapRequest request = getFullIcapRequest4Req();
+    return sendRequest(request, context, callback);
   }
 
   private FullIcapRequest getFullIcapRequest4Req() {
@@ -79,10 +116,9 @@ public class IcapClientImpl implements IcapClient{
   }
 
   @Override
-  public IcapFuture<FullResponse> respmod(String service, File file, IcapCallback<FullResponse> callback)  {
+  public IcapFuture<FullResponse> respmod(String service, byte[] context, IcapCallback<FullResponse> callback)  {
     FullIcapRequest request = getFullIcapRequest4Resp();
-    request.setFile(file);
-    return sendRequest(request, callback);
+    return sendRequest(request, context, callback);
   }
 
   private FullIcapRequest getFullIcapRequest4Resp() {
