@@ -51,10 +51,9 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
         .handler(new ChannelInitializer<SocketChannel>() {
           @Override
           protected void initChannel(SocketChannel ch) {
-            ReadTimeoutHandler readTimeoutHandler = new ReadTimeoutHandler(DEFAULT_TIMEOUT, TimeUnit.MILLISECONDS);
-            ch.pipeline().addLast(readTimeoutHandler);
             ch.pipeline().addLast(new WriteTimeoutHandler(DEFAULT_TIMEOUT, TimeUnit.MILLISECONDS));
             ch.pipeline().addLast(new IcapRequestEncoder());
+            ch.pipeline().addLast(new ReadTimeoutHandler(DEFAULT_TIMEOUT, TimeUnit.MILLISECONDS));
             ch.pipeline().addLast(new IcapResponseDecoder());
             ch.pipeline().addLast(new HttpObjectAggregator(MAX_SIZE));
             ch.pipeline().addLast(new IcapClientHandler());
