@@ -56,37 +56,41 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     switch (context.state) {
       case READ_INITIAL:
         if (!readInitialLine(context, in)) {
+          in.readerIndex(0);
           return;
         }
         context.state = State.READ_HEADER;
       case READ_HEADER:
         if (!readHeader(context, in)) {
+          in.readerIndex(0);
           return;
         }
       case READ_HTTP_HEADER:
         if (!readHttpHeader(context, in)) {
+          in.readerIndex(0);
           return;
         }
-        out.add(context.message);
-        context.reset();
-        context.state = State.READ_INITIAL;
-//        Encapsulated encapsulated = context.message.getEncapsulated();
-//        if(encapsulated!=null&&
-//            (encapsulated.containsEntry(IcapElEnum.REQBODY)
-//            ||encapsulated.containsEntry(IcapElEnum.RESBODY)
-//            ||encapsulated.containsEntry(IcapElEnum.OPTBODY))) {
-//          if (context.message.isChunked()) {
-//            context.state = State.READ_CHUNK_SIZE;
-//          } else {
-//            context.state = State.READ_CONTENT;
-//          }
-//        }else{
-//          out.add(context.message);
-//          context.reset();
-//          context.state = State.READ_INITIAL;
-//        }
+        //out.add(context.message);
+        //context.reset();
+        //context.state = State.READ_INITIAL;
+        Encapsulated encapsulated = context.message.getEncapsulated();
+        if(encapsulated!=null&&
+            (encapsulated.containsEntry(IcapElEnum.REQBODY)
+            ||encapsulated.containsEntry(IcapElEnum.RESBODY)
+            ||encapsulated.containsEntry(IcapElEnum.OPTBODY))) {
+          if (context.message.isChunked()) {
+            context.state = State.READ_CHUNK_SIZE;
+          } else {
+            context.state = State.READ_CONTENT;
+          }
+        }else{
+          out.add(context.message);
+          context.reset();
+          context.state = State.READ_INITIAL;
+        }
       case READ_CONTENT:
         if (!readContent(context, in)) {
+          in.readerIndex(0);
           return;
         }
         out.add(context.message);
@@ -275,13 +279,20 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
 
   private boolean readContent(Context context, ByteBuf in) throws Exception {
     FullHttpMessage httpMessage = context.message.getFullHttpMessage();
+    int readerIndex = in.readerIndex();
+    int sizeLength = findCRLF(in);
+    if (sizeLength > 0) {
+      String sizeHex = in.toString(readerIndex, sizeLength, CharsetUtil.US_ASCII);
+      context.contentSize = Integer.parseInt(sizeHex, 16);
+      in.readerIndex(readerIndex+sizeLength);
+    }
+
     if(context.contentSize>0) {
       int contentLength = httpMessage.content().readableBytes();
       int length = Math.min(in.readableBytes(), context.contentSize - contentLength);
       if (length > 0) {
         httpMessage.content().writeBytes(in, length);
       }
-
       if (contentLength + length >= context.contentSize) {
         return true;
       }
