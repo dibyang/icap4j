@@ -44,7 +44,7 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
     }
   }
 
-
+  protected Context context = new Context();
 
 
 
@@ -52,22 +52,19 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
 
   @Override
   protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-    Context context = new Context();
+
     switch (context.state) {
       case READ_INITIAL:
         if (!readInitialLine(context, in)) {
-          in.readerIndex(0);
           return;
         }
         context.state = State.READ_HEADER;
       case READ_HEADER:
         if (!readHeader(context, in)) {
-          in.readerIndex(0);
           return;
         }
       case READ_HTTP_HEADER:
         if (!readHttpHeader(context, in)) {
-          in.readerIndex(0);
           return;
         }
         //out.add(context.message);
@@ -90,7 +87,6 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
         }
       case READ_CONTENT:
         if (!readContent(context, in)) {
-          in.readerIndex(0);
           return;
         }
         out.add(context.message);
@@ -129,6 +125,9 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
   }
 
   private boolean readInitialLine(Context context, ByteBuf in) throws Exception {
+    if(context.message!=null){
+      return true;
+    }
     int readerIndex = in.readerIndex();
     int length = findCRLF(in);
     if (length < 0) {
@@ -181,7 +180,9 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
   }
 
   private boolean readHeader(Context context, ByteBuf in) throws Exception {
-
+    if(context.message!=null&&!context.message.headers().isEmpty()){
+      return true;
+    }
     int length = findCRLF(in);
     if (length < 0) {
       return false;

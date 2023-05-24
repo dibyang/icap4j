@@ -11,6 +11,7 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import net.xdob.icap4j.codec.FullResponse;
 import net.xdob.icap4j.codec.IcapRequestEncoder;
 import net.xdob.icap4j.codec.IcapResponseDecoder;
@@ -19,7 +20,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,11 +29,11 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
   public static final int DEFAULT_TIMEOUT = 5000;
   public static final int CONNECT_TIMEOUT = 2000;
 
-  private Semaphore semaphore;
-  private final NioEventLoopGroup eventLoopGroup;
+  protected Semaphore semaphore;
+  protected final NioEventLoopGroup eventLoopGroup;
 
   public IcapClientFactoryImpl() {
-    this.eventLoopGroup = new NioEventLoopGroup();
+    this.eventLoopGroup = new NioEventLoopGroup(4, new DefaultThreadFactory("nio_event_icap"));
     semaphore = new Semaphore(10);
   }
 
@@ -63,6 +63,10 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
     return bootstrap;
   }
 
+  @Override
+  public Semaphore getSemaphore() {
+    return semaphore;
+  }
 
   public void shutdown() {
     eventLoopGroup.shutdownGracefully();
@@ -130,8 +134,5 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
     return new byte[]{};
   }
 
-  @Override
-  public Semaphore getSemaphore() {
-    return semaphore;
-  }
+
 }
