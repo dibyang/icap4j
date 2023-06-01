@@ -280,14 +280,15 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
 
   private boolean readContent(Context context, ByteBuf in) throws Exception {
     FullHttpMessage httpMessage = context.message.getFullHttpMessage();
-    int readerIndex = in.readerIndex();
-    int sizeLength = findCRLF(in);
-    if (sizeLength > 0) {
-      String sizeHex = in.toString(readerIndex, sizeLength, CharsetUtil.US_ASCII);
-      context.contentSize = Integer.parseInt(sizeHex, 16);
-      in.readerIndex(readerIndex+sizeLength);
+    if(context.contentSize==0) {
+      int readerIndex = in.readerIndex();
+      int sizeLength = findCRLF(in);
+      if (sizeLength > 0) {
+        String sizeHex = in.toString(readerIndex, sizeLength, CharsetUtil.US_ASCII);
+        context.contentSize = Integer.parseInt(sizeHex, 16);
+        in.readerIndex(readerIndex + sizeLength);
+      }
     }
-
     if(context.contentSize>0) {
       int contentLength = httpMessage.content().readableBytes();
       int length = Math.min(in.readableBytes(), context.contentSize - contentLength);

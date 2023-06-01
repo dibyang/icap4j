@@ -127,7 +127,7 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
 
   private static byte[] getContext() {
     try {
-      return Files.readAllBytes(Paths.get("d:/rrrr.zip"));
+      return Files.readAllBytes(Paths.get("d:/test/iconfont.js"));
     } catch (IOException e) {
       e.printStackTrace();
     }
