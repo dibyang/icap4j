@@ -160,7 +160,7 @@ uploadArchives {
       }
 
       pom.project {
-        name 'luava'
+        name 'icap4j'
         packaging 'jar'
         // optionally artifactId can be defined here
         description project.description
