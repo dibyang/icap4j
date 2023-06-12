@@ -28,7 +28,7 @@ public class IcapClientImpl implements IcapClient{
   }
 
   IcapFuture<FullResponse> sendRequest(FullIcapRequest request, IcapCallback<FullResponse> callback) {
-    IcapFuture future = new IcapFuture(callback,null);
+    IcapFuture future = new IcapFuture(callback);
 
     try {
       context.getSemaphore().acquire();
