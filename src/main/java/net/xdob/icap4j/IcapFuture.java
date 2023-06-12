@@ -10,15 +10,20 @@ public class IcapFuture<T> implements Future<T> {
   static final Logger LOG = LoggerFactory.getLogger(IcapFuture.class);
 
   private final IcapCallback<T> callback;
+  private final FinallyCallBack finallyCallBack;
 
   private volatile boolean completed;
   private volatile boolean cancelled;
   private volatile T result;
   private volatile Throwable ex;
 
-
   public IcapFuture(final IcapCallback<T> callback) {
+    this(callback,null);
+  }
+
+  public IcapFuture(final IcapCallback<T> callback, FinallyCallBack finallyCallBack) {
     this.callback = callback;
+    this.finallyCallBack = finallyCallBack;
   }
 
   @Override
@@ -84,6 +89,13 @@ public class IcapFuture<T> implements Future<T> {
       this.result = result;
       notifyAll();
     }
+    if(this.finallyCallBack!=null){
+      try {
+        this.finallyCallBack.finallyCall();
+      } catch (Exception e) {
+        LOG.warn("Exception catch", e);
+      }
+    }
     if (this.callback != null) {
       try {
         this.callback.completed(result);
@@ -103,6 +115,13 @@ public class IcapFuture<T> implements Future<T> {
       this.completed = true;
       this.ex = exception;
       notifyAll();
+    }
+    if(this.finallyCallBack!=null){
+      try {
+        this.finallyCallBack.finallyCall();
+      } catch (Exception e) {
+        LOG.warn("Exception catch", e);
+      }
     }
     if (this.callback != null) {
       try {

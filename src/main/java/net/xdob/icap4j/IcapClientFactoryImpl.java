@@ -8,7 +8,6 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import io.netty.util.concurrent.DefaultThreadFactory;
@@ -19,22 +18,20 @@ import net.xdob.icap4j.codec.IcapResponseDecoder;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientContext{
   public static final int MAX_SIZE = 16 * 1024;
-  public static final int DEFAULT_TIMEOUT = 5000;
-  public static final int CONNECT_TIMEOUT = 2000;
+  public static final int DEFAULT_TIMEOUT = 10*1000;
+  public static final int CONNECT_TIMEOUT = 5*1000;
 
   protected Semaphore semaphore;
   protected final NioEventLoopGroup eventLoopGroup;
 
   public IcapClientFactoryImpl() {
     this.eventLoopGroup = new NioEventLoopGroup(4, new DefaultThreadFactory("nio_event_icap"));
-    semaphore = new Semaphore(10);
+    semaphore = new Semaphore(48);
   }
 
   @Override
@@ -56,7 +53,6 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
             ch.pipeline().addLast(new IcapRequestEncoder());
             ch.pipeline().addLast(new ReadTimeoutHandler(DEFAULT_TIMEOUT, TimeUnit.MILLISECONDS));
             ch.pipeline().addLast(new IcapResponseDecoder());
-            ch.pipeline().addLast(new HttpObjectAggregator(MAX_SIZE));
             ch.pipeline().addLast(new IcapClientHandler());
           }
         });
@@ -78,56 +74,60 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
     Stopwatch stopwatch = Stopwatch.createStarted();
     AtomicInteger finds = new AtomicInteger();
 
-    int count = 100;
-
+    int count = 1000;
     byte[] context = getContext();
+    ExecutorService service = Executors.newFixedThreadPool(5);
 
     CountDownLatch countDownLatch = new CountDownLatch(count);
     for (int i = 0; i < count; i++) {
-     int finalI  = i;
-      client.respmod("srv_clamav", context, new IcapCallback<FullResponse>() {
-        @Override
-        public void completed(FullResponse result) {
+      int finalI  = i;
+      service.submit(()->{
+        client.respmod("srv_clamav", context, new IcapCallback<FullResponse>() {
+          @Override
+          public void completed(FullResponse result) {
 
-          countDownLatch.countDown();
+            countDownLatch.countDown();
 //          FullHttpMessage httpMessage = result.getFullHttpMessage();
 //          int readableBytes = httpMessage.content().readableBytes();
 //          System.out.println("readableBytes = " + readableBytes);
-          String s = result.headers().get("X-Infection-Found");
-          if(s!=null){
-            finds.incrementAndGet();
-            //System.out.println(finalI +" response = " + result);
-          }else{
-            System.out.println(finalI +" response = " + result);
+            String s = result.headers().get("X-Infection-Found");
+            if(s!=null){
+              finds.incrementAndGet();
+              System.out.println(finalI +" find Infection");
+            }else{
+              System.out.println(finalI +" response = " + result);
+            }
+
           }
 
-        }
+          @Override
+          public void failed(Throwable ex) {
+            countDownLatch.countDown();
+            ex.printStackTrace();
+          }
 
-        @Override
-        public void failed(Throwable ex) {
-          countDownLatch.countDown();
-          ex.printStackTrace();
-        }
+          @Override
+          public void cancelled() {
 
-        @Override
-        public void cancelled() {
-
-        }
+          }
+        });
       });
+
     }
     try {
-      countDownLatch.await(40, TimeUnit.SECONDS);
+      countDownLatch.await();
       stopwatch.stop();
       System.out.println(String.format("count=%s, finds=%s, stopwatch=%s", count,finds,stopwatch.toString()));
     } catch (Exception e) {
       e.printStackTrace();
     }
+    service.shutdown();
     factory.shutdown();
   }
 
   private static byte[] getContext() {
     try {
-      return Files.readAllBytes(Paths.get("d:/test/iconfont.js"));
+      return Files.readAllBytes(Paths.get("d:/test/rrrr.zip"));
     } catch (IOException e) {
       e.printStackTrace();
     }
