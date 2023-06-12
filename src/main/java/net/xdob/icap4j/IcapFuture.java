@@ -89,13 +89,6 @@ public class IcapFuture<T> implements Future<T> {
       this.result = result;
       notifyAll();
     }
-    if (this.callback != null) {
-      try {
-        this.callback.completed(result);
-      } catch (Exception e) {
-        LOG.warn("Exception catch", e);
-      }
-    }
     if(this.finallyCallBack!=null){
       try {
         this.finallyCallBack.finallyCall();
@@ -103,6 +96,14 @@ public class IcapFuture<T> implements Future<T> {
         LOG.warn("Exception catch", e);
       }
     }
+    if (this.callback != null) {
+      try {
+        this.callback.completed(result);
+      } catch (Exception e) {
+        LOG.warn("Exception catch", e);
+      }
+    }
+
     return true;
   }
 
@@ -115,13 +116,6 @@ public class IcapFuture<T> implements Future<T> {
       this.ex = exception;
       notifyAll();
     }
-    if (this.callback != null) {
-      try {
-        this.callback.failed(exception);
-      } catch (Exception e) {
-        LOG.warn("Exception catch", e);
-      }
-    }
     if(this.finallyCallBack!=null){
       try {
         this.finallyCallBack.finallyCall();
@@ -129,6 +123,14 @@ public class IcapFuture<T> implements Future<T> {
         LOG.warn("Exception catch", e);
       }
     }
+    if (this.callback != null) {
+      try {
+        this.callback.failed(exception);
+      } catch (Exception e) {
+        LOG.warn("Exception catch", e);
+      }
+    }
+
     return true;
   }
 
