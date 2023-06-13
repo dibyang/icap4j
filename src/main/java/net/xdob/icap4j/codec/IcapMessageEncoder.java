@@ -8,12 +8,14 @@ import io.netty.handler.codec.MessageToMessageEncoder;
 import io.netty.handler.codec.http.*;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
+import net.xdob.icap4j.IcapConstants;
 
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
 
 
 public abstract class IcapMessageEncoder extends MessageToMessageEncoder<FullIcapMessage> {
@@ -130,4 +132,5 @@ public abstract class IcapMessageEncoder extends MessageToMessageEncoder<FullIca
     buf.writeBytes(value.getBytes(IcapCodecUtil.ASCII_CHARSET));
     buf.writeBytes(IcapCodecUtil.CRLF);
   }
+
 }

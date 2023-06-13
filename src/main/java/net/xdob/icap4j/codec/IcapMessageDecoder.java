@@ -8,10 +8,12 @@ import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.codec.http.*;
 import io.netty.util.ByteProcessor;
 import io.netty.util.CharsetUtil;
+import net.xdob.icap4j.IcapConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.Semaphore;
 
 public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
   static final Logger LOG = LoggerFactory.getLogger(IcapMessageDecoder.class);
@@ -372,7 +374,6 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
       return -1;
     }
   }
-
 
 }
 

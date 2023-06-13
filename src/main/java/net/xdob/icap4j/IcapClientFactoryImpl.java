@@ -1,24 +1,23 @@
 package net.xdob.icap4j;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.Maps;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
-import io.netty.channel.ConnectTimeoutException;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import io.netty.util.concurrent.DefaultThreadFactory;
-import net.xdob.icap4j.codec.FullResponse;
-import net.xdob.icap4j.codec.IcapRequestEncoder;
-import net.xdob.icap4j.codec.IcapResponseDecoder;
+import net.xdob.icap4j.codec.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -27,12 +26,27 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
   public static final int DEFAULT_TIMEOUT = 20*1000;
   public static final int CONNECT_TIMEOUT = 10*1000;
 
-  protected Semaphore semaphore;
+  private final Map<String, ReqSem> reqSemMap = Maps.newConcurrentMap();
+
+  private final Map<String, Semaphore> semMap = Maps.newConcurrentMap();
   protected NioEventLoopGroup eventLoopGroup;
+  private int nodeMaxConn = 24;
 
   public IcapClientFactoryImpl() {
-    this.eventLoopGroup = new NioEventLoopGroup(4, new DefaultThreadFactory("nio_event_icap"));
-    semaphore = new Semaphore(24);
+    this.eventLoopGroup = new NioEventLoopGroup(5, new DefaultThreadFactory("nio_event_icap"));
+
+    eventLoopGroup.scheduleWithFixedDelay(()->{
+      for (String id : reqSemMap.keySet()) {
+        ReqSem reqSem = reqSemMap.get(id);
+        if(reqSem !=null){
+          long offset = System.nanoTime()- reqSem.getNanoTime();
+          if(TimeUnit.NANOSECONDS.toMillis(offset)>DEFAULT_TIMEOUT){
+            reqSemMap.remove(id);
+            reqSem.getSemaphore().release();
+          }
+        }
+      }
+    },5,5,TimeUnit.SECONDS);
   }
 
   @Override
@@ -61,9 +75,28 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
   }
 
   @Override
-  public Semaphore getSemaphore() {
-    return semaphore;
+  public Semaphore getSemaphore(String host) {
+    synchronized (semMap){
+      Semaphore semaphore = semMap.get(host);
+      if(semaphore!=null){
+        semaphore = new Semaphore(nodeMaxConn);
+        semMap.put(host, semaphore);
+      }
+      return semaphore;
+    }
   }
+
+  @Override
+  public void addReqSem(String channelId, ReqSem reqSem) {
+    reqSemMap.put(channelId, reqSem);
+  }
+
+  @Override
+  public ReqSem removeReqSem(String channelId) {
+    return reqSemMap.remove(channelId);
+  }
+
+
 
   public void shutdown() {
     eventLoopGroup.shutdownGracefully();

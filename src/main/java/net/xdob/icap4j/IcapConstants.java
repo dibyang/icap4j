@@ -8,5 +8,6 @@ import java.util.concurrent.Semaphore;
 public interface IcapConstants {
   AttributeKey<IcapFuture<FullResponse>> FUTURE = AttributeKey.newInstance("future");
   AttributeKey<Semaphore> SEMAPHORE = AttributeKey.newInstance("semaphore");
+  AttributeKey<IcapClientContext> CONTEXT = AttributeKey.newInstance("context");
 
 }
