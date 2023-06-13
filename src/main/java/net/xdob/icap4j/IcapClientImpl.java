@@ -31,7 +31,7 @@ public class IcapClientImpl implements IcapClient{
           Channel channel = f.channel();
           String id = channel.id().asLongText();
 //          System.out.println("Semaphore acquire id = " + id);
-          ReqSem reqSem = new ReqSem(context.getSemaphore(host));
+          ReqSem reqSem = new ReqSem(context.getSemaphore(host), host);
           context.addReqSem(id, reqSem);
           channel.attr(IcapConstants.CONTEXT).set(context);
           //channel.attr(IcapConstants.SEMAPHORE).set(context.getSemaphore());

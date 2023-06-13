@@ -13,6 +13,8 @@ import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import net.xdob.icap4j.codec.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,15 +24,17 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientContext{
+  static final Logger LOG = LoggerFactory.getLogger(IcapClientFactoryImpl.class);
   public static final int MAX_SIZE = 16 * 1024;
   public static final int DEFAULT_TIMEOUT = 20*1000;
   public static final int CONNECT_TIMEOUT = 10*1000;
+  public static final int RELEASE_TIMEOUT = DEFAULT_TIMEOUT + CONNECT_TIMEOUT;
 
   private final Map<String, ReqSem> reqSemMap = Maps.newConcurrentMap();
 
   private final Map<String, Semaphore> semMap = Maps.newConcurrentMap();
   protected NioEventLoopGroup eventLoopGroup;
-  private int nodeMaxConn = 24;
+  private int nodeMaxConn = 16;
 
   public IcapClientFactoryImpl() {
     this.eventLoopGroup = new NioEventLoopGroup(5, new DefaultThreadFactory("nio_event_icap"));
@@ -40,9 +44,10 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
         ReqSem reqSem = reqSemMap.get(id);
         if(reqSem !=null){
           long offset = System.nanoTime()- reqSem.getNanoTime();
-          if(TimeUnit.NANOSECONDS.toMillis(offset)>DEFAULT_TIMEOUT){
+          if(TimeUnit.NANOSECONDS.toMillis(offset)>RELEASE_TIMEOUT){
             reqSemMap.remove(id);
             reqSem.getSemaphore().release();
+            LOG.warn("ReqSem not release. id={} host={}",id,reqSem.getHost());
           }
         }
       }
@@ -78,7 +83,7 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
   public Semaphore getSemaphore(String host) {
     synchronized (semMap){
       Semaphore semaphore = semMap.get(host);
-      if(semaphore!=null){
+      if(semaphore==null){
         semaphore = new Semaphore(nodeMaxConn);
         semMap.put(host, semaphore);
       }
