@@ -8,10 +8,14 @@ import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.codec.http.*;
 import io.netty.util.ByteProcessor;
 import io.netty.util.CharsetUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
+  static final Logger LOG = LoggerFactory.getLogger(IcapMessageDecoder.class);
+
   private static final String SYNTHETIC_ENCAPSULATED_HEADER_VALUE = "null-body=0";
 
   private static final int MAX_INITIAL_LINE_LENGTH = 1024;
@@ -200,8 +204,7 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
       context.message.headers().set(header[0], header[1]);
     }
     if(!context.message.headers().contains(IcapHeaderNames.ENCAPSULATED)){
-
-      System.out.println("headers = " + context.message.headers());
+      LOG.warn("not find encapsulated, headers = {}", context.message.headers());
     }
 
     handleEncapsulationHeaderVolatility(context.message);
@@ -259,7 +262,7 @@ public abstract class IcapMessageDecoder extends ByteToMessageDecoder {
 
         String line = in.toString(readerIndex, length, CharsetUtil.US_ASCII);
         if(!line.startsWith("HTTP")) {
-          System.out.println("line = " + line);
+          LOG.warn("not start with http, line = ", line);
         }
         in.readerIndex(readerIndex + length + 2);
         String[] initialLine = line.split(" ");

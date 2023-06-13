@@ -5,6 +5,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.ConnectTimeoutException;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -23,15 +24,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientContext{
   public static final int MAX_SIZE = 16 * 1024;
-  public static final int DEFAULT_TIMEOUT = 10*1000;
-  public static final int CONNECT_TIMEOUT = 5*1000;
+  public static final int DEFAULT_TIMEOUT = 20*1000;
+  public static final int CONNECT_TIMEOUT = 10*1000;
 
   protected Semaphore semaphore;
-  protected final NioEventLoopGroup eventLoopGroup;
+  protected NioEventLoopGroup eventLoopGroup;
 
   public IcapClientFactoryImpl() {
     this.eventLoopGroup = new NioEventLoopGroup(4, new DefaultThreadFactory("nio_event_icap"));
-    semaphore = new Semaphore(48);
+    semaphore = new Semaphore(24);
   }
 
   @Override
@@ -87,9 +88,6 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
           public void completed(FullResponse result) {
 
             countDownLatch.countDown();
-//          FullHttpMessage httpMessage = result.getFullHttpMessage();
-//          int readableBytes = httpMessage.content().readableBytes();
-//          System.out.println("readableBytes = " + readableBytes);
             String s = result.headers().get("X-Infection-Found");
             if(s!=null){
               finds.incrementAndGet();
@@ -127,7 +125,7 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
 
   private static byte[] getContext() {
     try {
-      return Files.readAllBytes(Paths.get("d:/test/rrrr.zip"));
+      return Files.readAllBytes(Paths.get("d:/test/pp.zip"));
     } catch (IOException e) {
       e.printStackTrace();
     }

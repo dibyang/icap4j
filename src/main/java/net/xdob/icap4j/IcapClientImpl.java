@@ -4,15 +4,10 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.*;
-import io.netty.handler.timeout.ReadTimeoutHandler;
-import io.netty.handler.timeout.WriteTimeoutHandler;
-import net.xdob.icap4j.codec.*;
-
-import java.io.File;
-import java.nio.file.Files;
+import net.xdob.icap4j.codec.DefaultFullIcapRequest;
+import net.xdob.icap4j.codec.FullIcapRequest;
+import net.xdob.icap4j.codec.FullResponse;
 
 public class IcapClientImpl implements IcapClient{
   private final String host;
@@ -28,27 +23,20 @@ public class IcapClientImpl implements IcapClient{
   }
 
   IcapFuture<FullResponse> sendRequest(FullIcapRequest request, IcapCallback<FullResponse> callback) {
-    IcapFuture future = new IcapFuture(callback, ()->{
-      context.getSemaphore().release();
-    });
+    IcapFuture future = new IcapFuture(callback);
 
     try {
       context.getSemaphore().acquire();
-      File file = request.getFile();
-      if(file !=null&&file.exists()&&file.isFile()){
-        long fileLength = file.length();
-        FullHttpMessage httpMessage = request.getFullHttpMessage();
-        httpMessage.headers().set(HttpHeaderNames.CONTENT_LENGTH,
-            fileLength);
-        byte[] bytes = Files.readAllBytes(file.toPath());
-        httpMessage.content().writeBytes(bytes);
-      }
       bootstrap.connect(host, port).addListener((ChannelFutureListener) f -> {
         if (f.isSuccess()) {
           Channel channel = f.channel();
+//          String id = channel.id().asShortText();
+//          System.out.println("Semaphore acquire id = " + id);
+          channel.attr(IcapConstants.SEMAPHORE).set(context.getSemaphore());
           channel.attr(IcapConstants.FUTURE).set(future);
           channel.writeAndFlush(request);
         } else {
+          context.getSemaphore().release();
           future.failed(f.cause());
         }
       });

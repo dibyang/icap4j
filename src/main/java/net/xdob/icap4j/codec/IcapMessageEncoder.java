@@ -28,7 +28,7 @@ public abstract class IcapMessageEncoder extends MessageToMessageEncoder<FullIca
 
   @Override
   protected void encode(ChannelHandlerContext ctx, FullIcapMessage msg, List<Object> out) throws Exception {
-    LOG.debug("Encoding [" + msg.getClass().getName() + "]");
+    //LOG.debug("Encoding [" + msg.getClass().getName() + "]");
     // 写入ICAP方法和URI
     ByteBuf headBuffer = ctx.alloc().buffer(HEAD_MAX_SIZE);
     out.add(headBuffer);

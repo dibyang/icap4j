@@ -48,15 +48,6 @@ public abstract class AbstractIcapMessage implements FullIcapMessage {
     this.version = version;
   }
 
-  @Override
-  public File getFile() {
-    return file;
-  }
-
-  @Override
-  public void setFile(File file) {
-    this.file = file;
-  }
 
   @Override
   public boolean containsHttpMessage() {

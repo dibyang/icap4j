@@ -7,10 +7,6 @@ import java.io.File;
 
 public interface IcapContent {
 
-  File getFile();
-
-  void setFile(File file);
-
 
   boolean containsHttpMessage();
 
