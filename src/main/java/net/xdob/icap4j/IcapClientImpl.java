@@ -8,8 +8,11 @@ import io.netty.handler.codec.http.*;
 import net.xdob.icap4j.codec.DefaultFullIcapRequest;
 import net.xdob.icap4j.codec.FullIcapRequest;
 import net.xdob.icap4j.codec.FullResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class IcapClientImpl implements IcapClient{
+  static final Logger LOG = LoggerFactory.getLogger(IcapClientImpl.class);
   private final String host;
   private final int port;
   private final IcapClientContext context;
@@ -39,12 +42,14 @@ public class IcapClientImpl implements IcapClient{
           channel.writeAndFlush(request);
 
         } else {
+          LOG.error("bootstrap connect listener error:{}", f.cause() != null ? f.cause().getMessage() : "");
           context.getSemaphore(host).release();
           future.failed(f.cause());
         }
       });
 
     } catch (Exception e) {
+      LOG.error("bootstrap connect error",e);
       context.getSemaphore(host).release();
       future.failed(e);
     }
