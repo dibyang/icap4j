@@ -32,7 +32,7 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
 
   private final Map<String, ReqSem> reqSemMap = Maps.newConcurrentMap();
 
-  private final Map<String, Semaphore> semMap = Maps.newConcurrentMap();
+  private final Map<String, DynamicSemaphore> semMap = Maps.newConcurrentMap();
   protected NioEventLoopGroup eventLoopGroup;
   private int nodeMaxConn = 16;
 
@@ -82,13 +82,24 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
   @Override
   public Semaphore getSemaphore(String host) {
     synchronized (semMap){
-      Semaphore semaphore = semMap.get(host);
+      DynamicSemaphore semaphore = semMap.get(host);
       if(semaphore==null){
-        semaphore = new Semaphore(nodeMaxConn);
+        semaphore = new DynamicSemaphore(nodeMaxConn);
         semMap.put(host, semaphore);
+      }
+      if(semaphore.getMaxPermits()!=nodeMaxConn){
+        semaphore.setMaxPermits(nodeMaxConn);
       }
       return semaphore;
     }
+  }
+
+  public int getNodeMaxConn() {
+    return nodeMaxConn;
+  }
+
+  public void setNodeMaxConn(int nodeMaxConn) {
+    this.nodeMaxConn = nodeMaxConn;
   }
 
   @Override

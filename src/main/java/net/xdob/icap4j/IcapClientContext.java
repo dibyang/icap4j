@@ -9,4 +9,5 @@ public interface IcapClientContext {
   Semaphore getSemaphore(String host);
   void addReqSem(String channelId, ReqSem reqSem);
   ReqSem removeReqSem(String channelId);
+
 }
