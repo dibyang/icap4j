@@ -34,20 +34,23 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
 
   private final Map<String, DynamicSemaphore> semMap = Maps.newConcurrentMap();
   protected NioEventLoopGroup eventLoopGroup;
+  protected ScheduledExecutorService icapTimeOutOffset;
   private int nodeMaxConn = 16;
 
   public IcapClientFactoryImpl() {
     this.eventLoopGroup = new NioEventLoopGroup(5, new DefaultThreadFactory("nio_event_icap"));
+    icapTimeOutOffset = Executors.newScheduledThreadPool(1, new DefaultThreadFactory("icap_time_out_offset"));
 
-    eventLoopGroup.scheduleWithFixedDelay(()->{
+    icapTimeOutOffset.scheduleWithFixedDelay(()->{
       for (String id : reqSemMap.keySet()) {
         ReqSem reqSem = reqSemMap.get(id);
         if(reqSem !=null){
-          long offset = System.nanoTime()- reqSem.getNanoTime();
-          if(TimeUnit.NANOSECONDS.toMillis(offset)>RELEASE_TIMEOUT){
-            reqSemMap.remove(id);
-            reqSem.getSemaphore().release();
-            LOG.warn("ReqSem not release. id={} host={}",id,reqSem.getHost());
+          long offset = Math.abs(System.nanoTime() - reqSem.getNanoTime());
+          if (TimeUnit.NANOSECONDS.toMillis(offset) > RELEASE_TIMEOUT) {
+            if (reqSemMap.remove(id) == null) {
+              reqSem.getSemaphore().release();
+            }
+            LOG.warn("ReqSem not release. id={} host={}", id, reqSem.getHost());
           }
         }
       }
@@ -66,6 +69,10 @@ public class IcapClientFactoryImpl implements IcapClientFactory, IcapClientConte
         .channel(NioSocketChannel.class)
         .option(ChannelOption.ALLOCATOR, UnpooledByteBufAllocator.DEFAULT)
         .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, CONNECT_TIMEOUT)
+        .option(ChannelOption.SO_REUSEADDR,true)
+        .option(ChannelOption.SO_KEEPALIVE,false)
+        .option(ChannelOption.TCP_NODELAY,true)
+
         .handler(new ChannelInitializer<SocketChannel>() {
           @Override
           protected void initChannel(SocketChannel ch) {
