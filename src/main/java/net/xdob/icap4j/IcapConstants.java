@@ -6,8 +6,8 @@ import net.xdob.icap4j.codec.FullResponse;
 import java.util.concurrent.Semaphore;
 
 public interface IcapConstants {
-  AttributeKey<IcapFuture<FullResponse>> FUTURE = AttributeKey.newInstance("future");
-  AttributeKey<Semaphore> SEMAPHORE = AttributeKey.newInstance("semaphore");
-  AttributeKey<IcapClientContext> CONTEXT = AttributeKey.newInstance("context");
+  AttributeKey<IcapFuture<FullResponse>> FUTURE = AttributeKey.newInstance("icap-future");
+  AttributeKey<Semaphore> SEMAPHORE = AttributeKey.newInstance("icap-semaphore");
+  AttributeKey<IcapClientContext> CONTEXT = AttributeKey.newInstance("icap-context");
 
 }
